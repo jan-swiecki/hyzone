@@ -1,0 +1,27 @@
+{
+  "name": "hyzone",
+  "version": "0.0.0",
+  "description": "Docker local orchestrator, Docker Compose but better",
+  "bin": "hyzone",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jan-swiecki/hyzone.git"
+  },
+  "keywords": [
+    "docker",
+    "orchstration",
+    "manager"
+  ],
+  "author": "Jan Święcki <jan.swiecki@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/jan-swiecki/hyzone/issues"
+  },
+  "homepage": "https://github.com/jan-swiecki/hyzone#readme"
+}

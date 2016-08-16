@@ -1,0 +1,441 @@
+#!/bin/bash
+NAME_PREFIX=""
+PREFIX_FILE=".hyzone_prefix"
+names=()
+containers=()
+
+# hax () (
+#   #!/usr/bin/env node:4
+
+#   var x = 1;
+#   console.log(x);
+# )
+
+# future () (
+#   #!/usr/bin/env java:8
+
+#   Integer x = 10;
+#   System.out.println(10);
+# )
+
+init-curl () {
+  # if [ -z "$(docker inspect $(docker images -q) | jq -r '.[] | select(.ContainerConfig.Labels.hyzoneCurl != null)')" ]; then
+  if [ ! -f '.hyzone-curl' ]; then
+
+    echo "Building hyzone-curl image (may take a while)"
+
+    mkdir -p tmp
+
+    cat <<EOF > tmp/.Dockerfile.Hyzone
+FROM ubuntu:14.04
+MAINTAINER Jan Święcki <jan.swiecki@gmail.com>
+
+RUN apt-get update && apt-get install -y curl
+EOF
+
+    docker build --label "hyzoneCurl=true" -t hyzone-curl -f tmp/.Dockerfile.Hyzone tmp >> hyzone.log
+    rm tmp/.Dockerfile.Hyzone
+    rm -r tmp
+
+    touch .hyzone-curl
+
+    echo "Successfully built hyzone-curl image"
+
+  fi
+}
+
+init-curl
+
+init_names () {
+  if [ -f "$PREFIX_FILE" ]; then
+    NAME_PREFIX="$(cat $PREFIX_FILE)"
+  fi
+
+  NETWORK_NAME="${NAME_PREFIX}$PROJECT_NAME"
+  # for name in $names; do
+
+  # done
+  # coreapi_name="${NAME_PREFIX}coreapi"
+  # postgres_name="${NAME_PREFIX}postgres"
+  # elasticsearch_name="${NAME_PREFIX}elasticsearch"
+  # selenium_hub_name="${NAME_PREFIX}selenium-hub"
+  # selenium_chrome_name="${NAME_PREFIX}selenium-chrome"
+  # protractor_name="${NAME_PREFIX}protractor"
+}
+
+register_container () {
+  name="$1"
+  names+=($name)
+  shift
+  for x in $@; do
+    eval $x
+  done
+}
+
+load () {
+  names=()
+
+  . $1
+
+  if [ -z "$PROJECT_NAME" ]; then
+    echo "You need to set PROJECT_NAME variable"
+    exit 1
+  fi
+
+  init_names
+}
+
+generate_random_prefix () {
+  if [ ! -f "$PREFIX_FILE" ]; then
+    set +e
+    prefix="$(cat /dev/urandom | tr -dc 'a-z0-9' | fold -w 6 | head -n 1)_"
+    set -e
+
+    #echo "Generated prefix: $prefix"
+    #echo "Saving in $PREFIX_FILE"
+    echo "$prefix" > $PREFIX_FILE
+  fi
+}
+
+is_running () {
+  name="$1"
+  test ! -z "$(docker inspect $(docker ps -q) | jq -r ".[] | .NetworkSettings.Networks[\"$NETWORK_NAME\"]?.Aliases | .[] | select(. == \"$name\")")"
+}
+
+get_container_id_by_network_alias () {
+  load hyzone.cfg
+  name="$1"
+  ids=$(docker ps -a -q)
+  if [ ! -z "$ids" ]; then
+    docker inspect $ids | jq -r ".[] | select(.Config.Labels.hyzoneAlias == \"$name\" and .Config.Labels.hyzoneProject == \"$PROJECT_NAME\" and .Config.Labels.hyzoneNetwork == \"$NETWORK_NAME\") | .Id"
+  fi
+}
+
+get_alive_container_id_by_network_alias () {
+  load hyzone.cfg
+  name="$1"
+  ids=$(docker ps -q)
+  if [ ! -z "$ids" ]; then
+    docker inspect $ids | jq -r ".[] | select(.Config.Labels.hyzoneAlias == \"$name\" and .Config.Labels.hyzoneProject == \"$PROJECT_NAME\" and .Config.Labels.hyzoneNetwork == \"$NETWORK_NAME\") | .Id"
+  fi
+}
+
+find_network () {
+  load hyzone.cfg
+  docker network inspect $(docker network ls -q) | jq -r ".[] | select(.Name == \"$NETWORK_NAME\") | .Id"
+}
+
+get_subnets_of_all_networks () {
+  docker network inspect $(docker network ls -q) | jq -r '.[] | .IPAM.Config[0].Subnet | select(. != null)' | sort | uniq
+}
+
+get_network_gateway_address () {
+  gateway="$(docker network inspect "$1" | jq -r '.[] | .IPAM.Config[0].Gateway')"
+  echo "${gateway/\/*/}"
+}
+
+get_container_ids () {
+  load hyzone.cfg
+  
+  ids=$(docker ps $1 -q --no-trunc)
+  if [ ! -z "$ids" ]; then
+    docker inspect $ids | jq -r ".[] | select(.Config.Labels.hyzoneNetwork == \"$NETWORK_NAME\") | .Id"
+  fi
+}
+
+get_all_projects_container_ids () {
+  load hyzone.cfg
+  
+  ids=$(docker ps $1 -q --no-trunc)
+  if [ ! -z "$ids" ]; then
+    docker inspect $ids | jq -r ".[] | select(.Config.Labels.hyzoneProject == \"$PROJECT_NAME\") | .Id"
+  fi
+}
+
+get_all_container_ids () {
+  get_container_ids "-a"
+}
+
+get_image_ids () {
+  load hyzone.cfg
+  ids=$(docker images -q)
+  if [ ! -z "$ids" ]; then
+    ids=$(docker inspect $ids | jq -r ".[] | select(.Config.Labels.id == \"$NETWORK_NAME\") | .Id")
+    for id in $ids; do
+      echo ${id/sha256:/}
+    done
+  fi
+}
+
+create_network () {
+  if [ -z "$(find_network)" ]; then
+    docker network create "$NETWORK_NAME"
+  fi
+}
+
+wait-for-line () {
+  name="$1"
+  line="$2"
+
+  id=$(get_alive_container_id_by_network_alias $name)
+
+  if [ -z "$id" ]; then
+    echo "Cannot fetch container id from $name"
+    return 1
+  fi
+
+  until docker logs $id 2>&1 | grep -q "$line"; do sleep 1; done
+}
+
+set -eo pipefail
+
+inspect () {
+  load hyzone.cfg
+  name="$1"
+
+  id="$(get_container_id_by_network_alias "$name")"
+  if [ ! -z "$id" ]; then
+    docker inspect $id
+  fi
+}
+
+shell () {
+  load hyzone.cfg
+  name="$1"
+
+  id="$(get_container_id_by_network_alias "$name")"
+  if [ ! -z "$id" ]; then
+    docker inspect $id
+  fi
+}
+
+ip () {
+  load hyzone.cfg
+  name="$1"
+
+  id="$(get_container_id_by_network_alias "$name")"
+  if [ ! -z "$id" ]; then
+    docker inspect $id | json -a NetworkSettings.Networks.$NETWORK_NAME.IPAddress
+  fi
+}
+
+exec () {
+  load hyzone.cfg
+  
+  args=()
+  while [ "${1:0:1}" == "-" ]; do
+    args+=($1)
+    shift
+  done
+
+  name="$1"
+  shift
+
+  if [ -z "$name" ]; then
+    echo "No name specified"
+    exit 1
+  fi
+
+  id="$(get_container_id_by_network_alias "$name")"
+  if [ ! -z "$id" ]; then
+    docker exec ${args[@]} $id "$@"
+  fi
+}
+
+network () (
+  load hyzone.cfg
+
+  inspect () {
+    docker network inspect $NETWORK_NAME
+  }
+
+  gateway () {
+    ip=$(inspect | json -a IPAM.Config | json -a Gateway)
+    echo ${ip/\/*/}
+  }
+
+  name () {
+    inspect | json -a Name
+  }
+
+  "$@"
+)
+
+ps () {
+  load hyzone.cfg
+
+  ids=$(get_all_container_ids)
+
+  # print docker ps first line
+  # set +e because of SIGPIPE to docker ps
+  set +e
+  docker ps | head -n 1
+  set -e
+
+  if [ ! -z "$ids" ]; then
+    for id in $ids; do
+      x=${id:0:12}
+      docker ps "$@" | grep $x
+    done
+  fi
+}
+
+run () (
+  set -eo pipefail
+
+  load hyzone.cfg
+
+  name="$1"
+  
+  if [ "${name:0:1}" == "-" ]; then
+    OPTS="--net=$NETWORK_NAME --network-alias=$name --label hyzoneProject=$PROJECT_NAME --label hyzoneAlias=$name --label hyzoneNetwork=$NETWORK_NAME"
+
+    create_network >> hyzone.log
+    docker run $OPTS "$@"
+  elif [ -z "$(printf '%s\n' "${names[@]}" | grep $name)" ]; then
+    echo "$name not found"
+    exit 1
+  else
+    NAME="${NAME_PREFIX}$name"
+
+    create_network
+
+    OPTS="--net=$NETWORK_NAME --network-alias=$name --name=$NAME --label hyzoneProject=$PROJECT_NAME --label hyzoneAlias=$name --label hyzoneNetwork=$NETWORK_NAME"
+
+    set +e
+    docker kill $NAME 2>/dev/null
+    docker rm $NAME 2>/dev/null
+    set -e
+
+    DOCKER_FILE=$(eval "echo \$${name}_DOCKER_FILE")
+    DOCKER_IMAGE=$(eval "echo \$${name}_DOCKER_IMAGE")
+    DOCKER_BUILD_CONTEXT=$(eval "echo \$${name}_DOCKER_BUILD_CONTEXT")
+
+    if [ ! -z "$DOCKER_FILE" ]; then
+      if [ -z "$DOCKER_BUILD_CONTEXT" ]; then
+        DOCKER_BUILD_CONTEXT="."
+      fi
+
+      docker build --label "hyzone=$PROJECT_NAME" -t $NAME -f $DOCKER_FILE $DOCKER_BUILD_CONTEXT
+      DOCKER_IMAGE=$NAME
+    fi
+
+    if [ -z "$DOCKER_IMAGE" ]; then
+      echo "No DOCKER_IMAGE"
+      exit
+    fi
+
+    OPTS+=" $DOCKER_IMAGE"
+
+    export OPTS
+
+    "$@"
+  fi
+)
+
+verify () (
+  echo TODO curl to endpoints or wait-for-line to check if app is running
+  exit 1 
+)
+
+init () (
+  echo TODO initialize containers
+  exit 1
+)
+
+logs () (
+  if [ -z "$1" ]; then
+    if [ -z "$LOG_LINES" ]; then
+      LOG_LINES="100"
+    fi
+
+    ids=$(get_all_container_ids)
+
+    for id in $ids; do
+      name="$(docker inspect $id | json 0 | json Config.Labels.hyzoneAlias)"
+      echo "--- BEGIN LAST $LOG_LINES LINES OF LOGS OF $name ---"
+      docker logs --tail=$LOG_LINES $id
+      echo "--- END OF LOGS OF $name ---"
+    done
+  else
+    name="$1"
+    id="$(get_container_id_by_network_alias "$name")"
+    shift
+    if [ ! -z "$id" ]; then
+      docker logs "$@" "$id"
+    else
+      docker logs "$@" "$name"
+    fi
+  fi
+)
+
+curl () {
+  load hyzone.cfg
+
+  docker run --net=$NETWORK_NAME -ti hyzone-curl curl -s "$@"
+}
+
+stop () {
+  load hyzone.cfg
+
+  if [ -z "$1" -o "$1" == "-t" ]; then
+    ids=$(get_container_ids)
+    if [ ! -z "$ids" ]; then
+      docker stop $ids $1 $2
+    fi
+  else
+    id="$(get_container_id_by_network_alias "$1")"
+    if [ ! -z "$id" ]; then
+      docker stop "$id" $2
+    else
+      docker stop "$1" $2
+    fi
+  fi
+}
+
+clean () {
+  load hyzone.cfg
+
+  container_ids=$(get_all_container_ids)
+  if [ ! -z "$container_ids" ]; then
+    docker rm $container_ids
+  fi
+
+  docker network rm "$NETWORK_NAME" 2>/dev/null || true
+
+  image_ids=$(get_image_ids)
+  if [ ! -z "$image_ids" ]; then
+    docker rmi -f $image_ids
+  fi
+
+  set +e
+  rm $PREFIX_FILE 2>/dev/null
+  rm hyzone.log 2>/dev/null
+  rm .hyzone-curl 2>/dev/null
+  set -e
+}
+
+kill () {
+  load hyzone.cfg
+
+  if [ -z "$1" ]; then
+    ids=$(get_container_ids)
+    if [ ! -z "$ids" ]; then
+      docker kill $ids
+    fi
+  else
+    id="$(get_container_id_by_network_alias "$1")"
+    if [ ! -z "$id" ]; then
+      docker kill "$id"
+    else
+      docker kill "$1"
+    fi
+  fi
+}
+
+nuke () {
+  kill
+  clean
+}
+
+"$@"

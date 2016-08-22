@@ -4,25 +4,11 @@ PREFIX_FILE=".hyzone_prefix"
 names=()
 containers=()
 
-# hax () (
-#   #!/usr/bin/env node:4
-
-#   var x = 1;
-#   console.log(x);
-# )
-
-# future () (
-#   #!/usr/bin/env java:8
-
-#   Integer x = 10;
-#   System.out.println(10);
-# )
-
 init-curl () {
   # if [ -z "$(docker inspect $(docker images -q) | jq -r '.[] | select(.ContainerConfig.Labels.hyzoneCurl != null)')" ]; then
   if [ ! -f '.hyzone-curl' ]; then
 
-    echo "Building hyzone-curl image (may take a while)"
+    # echo "Building hyzone-curl image (may take a while)"
 
     mkdir -p tmp
 
@@ -39,7 +25,7 @@ EOF
 
     touch .hyzone-curl
 
-    echo "Successfully built hyzone-curl image"
+    # echo "Successfully built hyzone-curl image"
 
   fi
 }
@@ -63,6 +49,32 @@ init_names () {
   # protractor_name="${NAME_PREFIX}protractor"
 }
 
+with () {
+  p="/vagrant/misc/hyzone"
+
+  node $p/with_prep.js "$@" > .Dockerfile
+
+  name="with_$(echo "$@" | md5sum | cut -d"-" -f1 -)"
+
+  echo "name=$name"
+
+  cp -r "$p/installers" .
+
+  docker build --label "hyzoneWith=true" -t $name -f .Dockerfile .
+  # rm .Dockerfile
+  rm -rf ./installers
+
+  docker run -ti -v "$(pwd):/w" -w /w $name
+}
+
+# python () {
+#   hyzone run -ti -v "$(pwd):/w" -w /w python python "$@"
+# }
+
+# node () {
+#   hyzone run -ti -v "$(pwd):/w" -w /w node node "$@"
+# }
+
 register_container () {
   name="$1"
   names+=($name)
@@ -85,6 +97,19 @@ load () {
   init_names
 }
 
+load_config () {
+  path="hyzone.cfg"
+  if [ ! -f "$path" ]; then
+    path="hyzone.bash"
+    if [ ! -f "$path" ]; then
+      echo "Cannot find hyzone config in ./hyzone.cfg and ./hyzone.bash paths"
+      exit 1
+    fi
+  fi
+
+  load $path
+}
+
 generate_random_prefix () {
   if [ ! -f "$PREFIX_FILE" ]; then
     set +e
@@ -103,7 +128,7 @@ is_running () {
 }
 
 get_container_id_by_network_alias () {
-  load hyzone.cfg
+  load_config
   name="$1"
   ids=$(docker ps -a -q)
   if [ ! -z "$ids" ]; then
@@ -112,7 +137,7 @@ get_container_id_by_network_alias () {
 }
 
 get_alive_container_id_by_network_alias () {
-  load hyzone.cfg
+  load_config
   name="$1"
   ids=$(docker ps -q)
   if [ ! -z "$ids" ]; then
@@ -121,7 +146,7 @@ get_alive_container_id_by_network_alias () {
 }
 
 find_network () {
-  load hyzone.cfg
+  load_config
   docker network inspect $(docker network ls -q) | jq -r ".[] | select(.Name == \"$NETWORK_NAME\") | .Id"
 }
 
@@ -135,7 +160,7 @@ get_network_gateway_address () {
 }
 
 get_container_ids () {
-  load hyzone.cfg
+  load_config
   
   ids=$(docker ps $1 -q --no-trunc)
   if [ ! -z "$ids" ]; then
@@ -144,7 +169,7 @@ get_container_ids () {
 }
 
 get_all_projects_container_ids () {
-  load hyzone.cfg
+  load_config
   
   ids=$(docker ps $1 -q --no-trunc)
   if [ ! -z "$ids" ]; then
@@ -157,7 +182,7 @@ get_all_container_ids () {
 }
 
 get_image_ids () {
-  load hyzone.cfg
+  load_config
   ids=$(docker images -q)
   if [ ! -z "$ids" ]; then
     ids=$(docker inspect $ids | jq -r ".[] | select(.Config.Labels.id == \"$NETWORK_NAME\") | .Id")
@@ -190,7 +215,7 @@ wait-for-line () {
 set -eo pipefail
 
 inspect () {
-  load hyzone.cfg
+  load_config
   name="$1"
 
   id="$(get_container_id_by_network_alias "$name")"
@@ -200,7 +225,7 @@ inspect () {
 }
 
 shell () {
-  load hyzone.cfg
+  load_config
   name="$1"
 
   id="$(get_container_id_by_network_alias "$name")"
@@ -210,7 +235,7 @@ shell () {
 }
 
 ip () {
-  load hyzone.cfg
+  load_config
   name="$1"
 
   id="$(get_container_id_by_network_alias "$name")"
@@ -220,7 +245,7 @@ ip () {
 }
 
 exec () {
-  load hyzone.cfg
+  load_config
   
   args=()
   while [ "${1:0:1}" == "-" ]; do
@@ -243,7 +268,7 @@ exec () {
 }
 
 network () (
-  load hyzone.cfg
+  load_config
 
   inspect () {
     docker network inspect $NETWORK_NAME
@@ -262,7 +287,7 @@ network () (
 )
 
 ps () {
-  load hyzone.cfg
+  load_config
 
   ids=$(get_all_container_ids)
 
@@ -283,7 +308,7 @@ ps () {
 run () (
   set -eo pipefail
 
-  load hyzone.cfg
+  load_config
 
   name="$1"
   
@@ -339,8 +364,16 @@ verify () (
 )
 
 init () (
-  echo TODO initialize containers
-  exit 1
+  if [ -z "$1" ]; then
+    set +e
+    name="$(cat /dev/urandom | tr -dc 'a-z0-9' | fold -w 6 | head -n 1)_"
+    rm hyzone.bash 2>/dev/null
+    set -e
+  else
+    name="$1"
+  fi
+
+  echo "PROJECT_NAME=$name" > hyzone.bash
 )
 
 logs () (
@@ -370,13 +403,13 @@ logs () (
 )
 
 curl () {
-  load hyzone.cfg
+  load_config
 
   docker run --net=$NETWORK_NAME -ti hyzone-curl curl -s "$@"
 }
 
 stop () {
-  load hyzone.cfg
+  load_config
 
   if [ -z "$1" -o "$1" == "-t" ]; then
     ids=$(get_container_ids)
@@ -394,7 +427,7 @@ stop () {
 }
 
 clean () {
-  load hyzone.cfg
+  load_config
 
   container_ids=$(get_all_container_ids)
   if [ ! -z "$container_ids" ]; then
@@ -416,7 +449,7 @@ clean () {
 }
 
 kill () {
-  load hyzone.cfg
+  load_config
 
   if [ -z "$1" ]; then
     ids=$(get_container_ids)

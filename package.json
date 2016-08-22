@@ -23,5 +23,8 @@
   "bugs": {
     "url": "https://github.com/jan-swiecki/hyzone/issues"
   },
-  "homepage": "https://github.com/jan-swiecki/hyzone#readme"
+  "homepage": "https://github.com/jan-swiecki/hyzone#readme",
+  "dependencies": {
+    "lodash": "^4.15.0"
+  }
 }

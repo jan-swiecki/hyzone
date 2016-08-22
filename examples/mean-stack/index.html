@@ -1,0 +1,24 @@
+<html>
+  <head>
+    <title>Test App</title>>
+  </head>
+
+  <body ng-app="app">
+    
+    <div ng-controller="AppController">
+      <div>
+        <input type="text" ng-model="post">
+        <button ng-click="addPost(post)">Add post</button>
+      </div>
+
+      <div>
+        <ul ng-repeat="post in posts">
+          <li>{{post}}</li>  
+        </ul>          
+      </div>
+    </div>
+
+    <script src="index.js"></script>
+  </body>
+
+</html>

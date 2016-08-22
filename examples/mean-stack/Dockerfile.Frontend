@@ -1,0 +1,10 @@
+FROM node:4
+
+RUN npm install -g wzrd
+RUN npm install -g browserify
+
+WORKDIR /opt/app
+RUN npm install angular@1
+WORKDIR /opt/app/public_html
+
+ENTRYPOINT ["wzrd"]

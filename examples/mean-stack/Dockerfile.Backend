@@ -1,0 +1,8 @@
+FROM node:4
+
+WORKDIR /app
+COPY package.json /app
+RUN npm install
+COPY backend.js /app
+
+ENTRYPOINT ["node", "/app/backend.js"]

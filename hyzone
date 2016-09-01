@@ -300,7 +300,10 @@ ps () {
   if [ ! -z "$ids" ]; then
     for id in $ids; do
       x=${id:0:12}
-      docker ps "$@" | grep $x
+
+      # If grep doesn't find anything it exits with code 1
+      # and we don't want to break the script here so we add `|| true`.
+      docker ps "$@" | grep $x || true
     done
   fi
 }
@@ -316,6 +319,7 @@ run () (
     OPTS="--net=$NETWORK_NAME --network-alias=$name --label hyzoneProject=$PROJECT_NAME --label hyzoneAlias=$name --label hyzoneNetwork=$NETWORK_NAME"
 
     create_network >> hyzone.log
+    echo $OPTS
     docker run $OPTS "$@"
   elif [ -z "$(printf '%s\n' "${names[@]}" | grep $name)" ]; then
     echo "$name not found"

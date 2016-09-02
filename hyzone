@@ -314,16 +314,16 @@ run () (
   load_config
 
   name="$1"
-  
+
   if [ "${name:0:1}" == "-" ]; then
     OPTS="--net=$NETWORK_NAME --network-alias=$name --label hyzoneProject=$PROJECT_NAME --label hyzoneAlias=$name --label hyzoneNetwork=$NETWORK_NAME"
 
     create_network >> hyzone.log
     echo $OPTS
     docker run $OPTS "$@"
-  elif [ -z "$(printf '%s\n' "${names[@]}" | grep $name)" ]; then
-    echo "$name not found"
-    exit 1
+  # elif [ -z "$(printf '%s\n' "${names[@]}" | grep $name)" ]; then
+  #   echo "$name not found"
+  #   exit 1
   else
     NAME="${NAME_PREFIX}$name"
 
@@ -336,25 +336,31 @@ run () (
     docker rm $NAME 2>/dev/null
     set -e
 
-    DOCKER_FILE=$(eval "echo \$${name}_DOCKER_FILE")
-    DOCKER_IMAGE=$(eval "echo \$${name}_DOCKER_IMAGE")
-    DOCKER_BUILD_CONTEXT=$(eval "echo \$${name}_DOCKER_BUILD_CONTEXT")
-
-    if [ ! -z "$DOCKER_FILE" ]; then
-      if [ -z "$DOCKER_BUILD_CONTEXT" ]; then
-        DOCKER_BUILD_CONTEXT="."
-      fi
-
-      docker build --label "hyzone=$PROJECT_NAME" -t $NAME -f $DOCKER_FILE $DOCKER_BUILD_CONTEXT
-      DOCKER_IMAGE=$NAME
+    if [ "$(type -t "$name")" != "function" ]; then
+      echo "No such function: $name"
+      return 1
     fi
 
-    if [ -z "$DOCKER_IMAGE" ]; then
-      echo "No DOCKER_IMAGE"
+    dockerfile=$(eval "echo \$${name}_dockerfile")
+    build_context=$(eval "echo \$${name}_context")
+    docker_image=$(eval "echo \$${name}_image")
+
+    if [ ! -z "$dockerfile" ]; then
+      if [ -z "$build_context" ]; then
+        build_context="."
+      fi
+
+      docker build --label "hyzone=$PROJECT_NAME" -t $NAME -f $dockerfile $build_context
+      docker_image=$NAME
+    fi
+
+    if [ -z "$docker_image" ]; then
+      echo "Docker image and Dockerfile is not defined:"
+      echo " Please specify ${name}_dockerfile or ${name}_image environmental variables"
       exit
     fi
 
-    OPTS+=" $DOCKER_IMAGE"
+    OPTS+=" $docker_image"
 
     export OPTS
 

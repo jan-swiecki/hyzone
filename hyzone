@@ -155,7 +155,15 @@ get_subnets_of_all_networks () {
 }
 
 get_network_gateway_address () {
-  gateway="$(docker network inspect "$1" | jq -r '.[] | .IPAM.Config[0].Gateway')"
+  load_config
+  
+  if [ -z "$1" ]; then
+    name="$NETWORK_NAME"
+  else
+    name="$1"
+  fi
+
+  gateway="$(docker network inspect "$name" | jq -r '.[] | .IPAM.Config[0].Gateway')"
   echo "${gateway/\/*/}"
 }
 
@@ -224,6 +232,7 @@ inspect () {
   fi
 }
 
+# TODO fix
 shell () {
   load_config
   name="$1"
@@ -248,7 +257,11 @@ exec () {
   load_config
   
   args=()
-  while [ "${1:0:1}" == "-" ]; do
+  # while [ "${1:0:1}" == "-" ]; do
+  #   args+=($1)
+  #   shift
+  # done
+  while [ "type -t $1" != "function" ]; do
     args+=($1)
     shift
   done
@@ -294,7 +307,7 @@ ps () {
   # print docker ps first line
   # set +e because of SIGPIPE to docker ps
   set +e
-  docker ps | head -n 1
+  docker ps "$@" | head -n 1
   set -e
 
   if [ ! -z "$ids" ]; then
@@ -316,11 +329,11 @@ run () (
   name="$1"
 
   if [ "${name:0:1}" == "-" ]; then
-    OPTS="--net=$NETWORK_NAME --network-alias=$name --label hyzoneProject=$PROJECT_NAME --label hyzoneAlias=$name --label hyzoneNetwork=$NETWORK_NAME"
+    HYZONE_OPTS="$HYZONE_OPTS --net=$NETWORK_NAME --network-alias=$name --label hyzoneProject=$PROJECT_NAME --label hyzoneAlias=$name --label hyzoneNetwork=$NETWORK_NAME"
 
     create_network >> hyzone.log
-    echo $OPTS
-    docker run $OPTS "$@"
+    echo $HYZONE_OPTS
+    docker run $HYZONE_OPTS "$@"
   # elif [ -z "$(printf '%s\n' "${names[@]}" | grep $name)" ]; then
   #   echo "$name not found"
   #   exit 1
@@ -329,7 +342,13 @@ run () (
 
     create_network
 
-    OPTS="--net=$NETWORK_NAME --network-alias=$name --name=$NAME --label hyzoneProject=$PROJECT_NAME --label hyzoneAlias=$name --label hyzoneNetwork=$NETWORK_NAME"
+    set +e
+    if type -t setup; then
+      setup
+    fi
+    set -e
+
+    HYZONE_OPTS="$HYZONE_OPTS --net=$NETWORK_NAME --network-alias=$name --name=$NAME --label hyzoneProject=$PROJECT_NAME --label hyzoneAlias=$name --label hyzoneNetwork=$NETWORK_NAME"
 
     set +e
     docker kill $NAME 2>/dev/null
@@ -354,15 +373,17 @@ run () (
       docker_image=$NAME
     fi
 
-    if [ -z "$docker_image" ]; then
-      echo "Docker image and Dockerfile is not defined:"
-      echo " Please specify ${name}_dockerfile or ${name}_image environmental variables"
-      exit
+    # if [ -z "$docker_image" ]; then
+    #   echo "Docker image and Dockerfile is not defined:"
+    #   echo " Please specify ${name}_dockerfile or ${name}_image environmental variables"
+    #   exit
+    # fi
+
+    if [ ! -z "$docker_image" ]; then
+      HYZONE_OPTS+=" $docker_image"
     fi
 
-    OPTS+=" $docker_image"
-
-    export OPTS
+    export HYZONE_OPTS
 
     "$@"
   fi
@@ -374,14 +395,14 @@ verify () (
 )
 
 init () (
-  if [ -z "$1" ]; then
-    set +e
-    name="$(cat /dev/urandom | tr -dc 'a-z0-9' | fold -w 6 | head -n 1)_"
-    rm hyzone.bash 2>/dev/null
-    set -e
-  else
-    name="$1"
-  fi
+  # if [ -z "$1" ]; then
+  #   set +e
+  #   name="$(cat /dev/urandom | tr -dc 'a-z0-9' | fold -w 6 | head -n 1)_"
+  #   rm hyzone.bash 2>/dev/null
+  #   set -e
+  # else
+  #   name="$1"
+  # fi
 
   echo "PROJECT_NAME=$name" > hyzone.bash
 )
@@ -408,9 +429,18 @@ logs () (
       docker logs "$@" "$id"
     else
       docker logs "$@" "$name"
-    fi
+    fi  
   fi
 )
+
+required () {
+  value="$(eval "echo \$$1")"
+
+  if [ -z "$value" ]; then
+    echo "$1 not set"
+    exit 1
+  fi
+}
 
 curl () {
   load_config

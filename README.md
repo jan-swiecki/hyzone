@@ -55,11 +55,11 @@ You can add normal bash functions to hyzone.cfg. `hyzone run $1` will run them a
     backend () { ...; }
     frontend () { ...; }
 
-    get_version () {
-      hyzone curl backend:8080/api/version
+    api_request () {
+      hyzone curl backend:8080/api/$1
     }
 
-    $ hyzone run get_version
+    $ hyzone run api_request /version
     {
       "version": "1.1.0"
     }

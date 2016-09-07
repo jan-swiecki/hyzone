@@ -44,7 +44,7 @@ We would run above configuration file with:
 
 Hyzone managed containers are to be treated as ephemeral.
 
-**The philosophy of hyzone is to quickly run environment, easily run manual or automatic tests and quickly tear down whole environment on-demand with all images and network removed if needed.**
+**The philosophy of hyzone is to quickly run environment, easily run manual or automatic tests and quickly tear down whole environment on-demand with all images and network removed if needed.** With this approach you're able to restart one container or all containers quickly and painfully. You can basically run any task you define in the config.
 
 `hyzone run <name>` will run container in specially created network (named after PROJECT_NAME). All `run` commands create containers in this network. All containers are available by their function names, e.g. by `backend` and `frontend` hostnames within the network.
 
@@ -64,7 +64,19 @@ And then
       "version": "1.1.0"
     }
 
-When you run `hyzone run $1` again then old container will be killed immediately and removed and new one will be rebuilt/recreated. **This is why this technology is for development/CI environment**.
+To restart backend run
+
+    $ hyzone run backend
+
+When you run `hyzone run $1` again then old container will be killed immediately and removed and new one will be rebuilt, recreated and re-run.
+
+To kill backend
+
+    $ hyzone kill backend
+
+To kill all containers (in current hyzone scope)
+
+    $ hyzone kill
 
 ## Hyzone curl
 

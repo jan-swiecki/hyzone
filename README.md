@@ -1,22 +1,26 @@
 # Hyzone
 
-Docker orchestration for local/CI environment for Bash users. Similar to Docker Compose, but simpler.
+Docker orchestration for local/CI environment for Linux users. It might be a better alternative to Docker Compose.
 
-You don't need to know bash to use it if you know basics of *nix based shell.
+It's bash-based but you don't need to know bash to use it if you know basics of *nix based shell. Although bash knowledge gives you more power over hyzone. Additionally you should be quite familiar with Docker.
 
-If you don't understand below example then it is adviced that you familiarize yourself with Linux shell and bash scripting a little bit.
+If you don't understand below example then it is adviced that you familiarize yourself with Linux shell and bash scripting a little bit and/or Docker.
 
-## Learn by example
+Quick links:
 
-    $ cat hyzone.cfg
+* [API docs](docs/API.md)
+* [Basic example](examples/basic-example/hyzone.cfg)
+* [Examples](examples)
+
+## Introduction
+
+Hyzone uses similar concept to `docker-compose.yml`. Hyzone config file is named `hyzone.cfg` or `hyzone.bash`. This file is in bash. It has numerous user-defined functions. Each function can represent either a container or some task to be run (e.g. run multiple containers or check state of the system). Example file:
+
     PROJECT_NAME="myproj"
 
-    # Dockerfile path and context for `docker build` command.
-    # `docker build -f "$backend_dockerfile" -t backend "$backend_context"` will be executed
-    # automatically on each usage of backend.
     backend_dockerfile="$(pwd)/backend/Dockerfile"
     backend_context="$(pwd)/backend"
-
+    
     backend () {
       docker run -d -v "$(pwd)/backend:/w" -w /w $HYZONE_OPTS node index.js
     }
@@ -26,12 +30,46 @@ If you don't understand below example then it is adviced that you familiarize yo
       docker run -d -v "$(pwd)/frontend:/w" -w /w $HYZONE_OPTS nginx
     }
 
-    # $HYZONE_OPTS is a variable that hyzone prefills with connection options, image name, labels etc.
-    # that are needed for your convenience and for hyzone to operate.
+`$HYZONE_OPTS` is a variable that hyzone prefills with connection options, image name, labels etc. that are needed for your convenience and for hyzone to operate.
 
+This example is read-only. After this example you'll get other example to play with (see below).
+
+We would run above configuration file with:
 
     $ hyzone run backend
+    <some docker/hyzone output>
+    
     $ hyzone run frontend
+    <some docker/hyzone output>
+
+Hyzone managed containers are to be treated as ephemeral.
+
+**The philosophy of hyzone is to quickly run environment, easily run manual or automatic tests and quickly tear down whole environment on-demand with all images and network removed if needed.**
+
+`hyzone run <name>` will run container in specially created network (named after PROJECT_NAME). All `run` commands create containers in this network. All containers are available by their function names, e.g. by `backend` and `frontend` hostnames within the network.
+
+You can add normal bash functions to `hyzone.cfg`. `hyzone run $1` will run them as normal functions. You can pass arguments to them normally. For example we can have this kind of `hyzone.cfg` file:
+
+    backend () { ...; }
+    frontend () { ...; }
+
+    api_request () {
+      hyzone curl backend:8080/api/$1
+    }
+
+And then
+
+    $ hyzone run api_request /version
+    {
+      "version": "1.1.0"
+    }
+
+When you run `hyzone run $1` again then old container will be killed immediately and removed and new one will be rebuilt/recreated. **This is why this technology is for development/CI environment**.
+
+## Hyzone curl
+
+You can run
+
     $ hyzone curl -s "http://backend:8080/api/user/1"
     {
       "name": "Jan",
@@ -44,123 +82,9 @@ If you don't understand below example then it is adviced that you familiarize yo
     </body>
     </html>
 
-`hyzone run <name>` will run container in specially created network (named after PROJECT_NAME). All `run` commands create containers in this network. All containers are available by their function names, e.g. by `backend` and `frontend` hostnames within above network.
+Above responses are example responses from `backend` and `frontend` apps.
 
-`hyzone curl` runs `curl` in special container within same docker network so you can access containers by aliases.
-
-You can add normal bash functions to hyzone.cfg. `hyzone run $1` will run them as normal functions. You can pass arguments to them normally. For example
-
-    $ cat hyzone.cfg
-    
-    backend () { ...; }
-    frontend () { ...; }
-
-    api_request () {
-      hyzone curl backend:8080/api/$1
-    }
-
-    $ hyzone run api_request /version
-    {
-      "version": "1.1.0"
-    }
-
-When you run `hyzone run backend` again then old container will be killed immediately and removed and new one will be rebuilt/recreated. **That is why this technology is for development/CI environment only because of how easy it is to loose data**.
-
-## Additional features
-
-### `hyzone logs`
-
-To display logs of container
-
-    hyzone logs backend
-
-To tail logs (similar to `docker logs`)
-
-    hyzone logs backend -f --tail=100
-
-### `hyzone exec`
-
-Same as `docker exec` but you provide name defined in hyzone.cfg.
-
-By comparison:
-
-    docker exec [opts] <container_id|container_name> <command>
-    hyzone exec [opts] <hyzone_name> <command>
-
-It will autofind container_id and run `docker exec`.
-
-Example
-
-    hyzone exec -ti postgres psql --user postgres
-
-### `hyzone wait-for-line <hyzone_name> <searchtext>`
-
-Blocks until `docker logs -f` from container has `searchtext` in some line.
-
-Example
-
-    $ hyzone cat hyzone.cfg
-    postgres () {
-      docker run -d $HYZONE_OPTS postgres:9.5
-    }
-
-    $ hyzone run postgres
-    $ hyzone wait-for-line postgres "database system is ready to accept connections"
-    
-Last command will block until `docker logs` from `postgres` container contain `database system is ready to accept connections` in some line.
-
-### `hyzone curl [curl_options] <url>`
-
-Same as `curl` but is run within Docker network of given containers, so you can use hyzone names as hostnames.
-
-### `hyzone ip <hyzone_name>`
-
-Return IP of container.
-
-### `hyzone ps`
-
-Same as `docker ps` but shows only containers related tu current context. Unlike `docker-compose` hyzone will display information in the same format as `docker ps`. You can pass same parameters to `hyzone ps` as to `docker ps`.
-
-Example
-
-    hyzone ps -q
-
-### `hyzone logs [hyzone_name]`
-
-`hyzone logs` will display logs of all containers from current context (last 100* lines)
-
-`hyzone logs <hyzone_name> [opts]` will display logs of given container. Options can be `-f`, `--tail` etc. (same as for `docker logs`). 
-
-* - you can change this value to other number by setting LOG_LINES env variable.
-
-Example
-
-    hyzone logs backend -f --tail=100
-
-Above will stream in real-time logs to stdout, but in the beginning it will display only last 100 lines.
-
-### `hyzone kill [hyzone_name]`
-
-`hyzone kill` will kill all containers in current context.
-
-`hyzone kill <name>` will kill given container.
-
-### `hyzone clean`
-
-This command will remove created network and docker images built via Dockerfiles. It will remove any temporary files and log files of hyzone.
-
-### `hyzone nuke`
-
-Alias for
-
-    hyzone kill
-    hyzone clean
-
-### Network commands
-
-`hyzone network inspect` - `docker inspect` network created by hyzone for given containers
-`hyzone network geteway` - show IP of gateway of current network
-`hyzone network name` - show network name
+`hyzone curl` runs `curl` in special container within same docker network so you can access containers by their hyzone names (i.e. function names). Docker containers in most cases will be named the same as hyzone names.
 
 ## Random prefix
 
@@ -172,18 +96,17 @@ Random prefix is useful if you run mutilple CI pipelines parallely (e.g. for dif
 
 `hyzone kill` and `hyzone clean` command will work too.
 
-## Experimental features
-
-### `hyzone with [global_dependencies] <command>`
-
-Dynamically run ubuntu based image with CLI defined dependencies, without Dockerfile.
-
-    hyzone with npm:bower npm:gulp pip:awscli node gulp build
-
-Above command will automagially create container with `gulp`, `bower` and `aws` commands available and run the container in the workspace shared with current folder with `gulp build` command.
-
 ## Tips and tricks
 
 `hyzone run <name> && hyzone logs <name> -f` to run and tail logs immediately. To restart app just `CTRL-C` and up arrow and re-execute the command. Remember that `hyzone run` will kill and rebuild and run the container again.
 
-    ## License MIT
+## TODO
+
+* Update mean-stack example
+* Create more examples
+  * Multi-language project example
+  * Jenkins pipelines examples with selenium and API tests
+* Finish `hyzone with` [experimental](docs/Experimental.md) feature.
+* Allow using other languages in bash functions which is an [experimental](docs/Experimental.md) feature.
+
+## License MIT

@@ -49,7 +49,7 @@ Hyzone managed containers are to be treated as ephemeral.
 * easily run manual or automatic tests, verify state, do normal development or run tests in CI
 * kill single containers or all of them on-demand with garbage collection if needed (i.e. you can remove all images and docker network if you want).
 
-With this approach you'll be able, for example, to run all containers, then restart one container and then kill some other, then run some tests defined in `hyzone.cfg` and then kill all containers, remove docker images and docker network. You can basically run any task you define in the config.
+With this approach you'll be able, for example, to run all containers, then restart one container and then kill some other, then run some tests defined in `hyzone.cfg` and then kill all containers, remove docker images and docker network. You can basically run any `hyzone` task and any task you define in the config. Tasks (bash functions) in the config can have normal commands, hyzone commands and docker commands. <s>Sky</s> Bash is the limit.
 
 `hyzone run <name>` will run container in specially created network (named after PROJECT_NAME). All `run` commands create containers in this network. All containers are available by their function names, e.g. by `backend` and `frontend` hostnames within the network.
 

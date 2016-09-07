@@ -255,18 +255,22 @@ ip () {
 
 exec () {
   load_config
-  
+
+  set +e
   args=()
-  # while [ "${1:0:1}" == "-" ]; do
-  #   args+=($1)
-  #   shift
-  # done
-  while [ "type -t $1" != "function" ]; do
+  while [ "$(type -t "$1")" != "function" -a "$1" != "" ]; do
     args+=($1)
     shift
   done
+  set -e
 
   name="$1"
+
+  if [ -z "$name" ]; then
+    echo "hyzone: cannot find hyzone container matching given command"
+    return 1
+  fi
+
   shift
 
   if [ -z "$name" ]; then
@@ -275,6 +279,7 @@ exec () {
   fi
 
   id="$(get_container_id_by_network_alias "$name")"
+  echo $id
   if [ ! -z "$id" ]; then
     docker exec ${args[@]} $id "$@"
   fi
@@ -369,8 +374,8 @@ run () (
         build_context="."
       fi
 
-      docker build --label "hyzone=$PROJECT_NAME" -t $NAME -f $dockerfile $build_context
-      docker_image=$NAME
+      docker_image="${NAME}_image"
+      docker build --label "hyzone=$PROJECT_NAME" -t "$docker_image" -f $dockerfile $build_context
     fi
 
     # if [ -z "$docker_image" ]; then

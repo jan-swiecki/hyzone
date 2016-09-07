@@ -1,0 +1,13 @@
+Sending build context to Docker daemon 2.048 kB
+Step 1 : FROM ubuntu:14.04
+ ---> 4a725d3b3b1c
+Step 2 : MAINTAINER Jan Święcki <jan.swiecki@gmail.com>
+ ---> Using cache
+ ---> ade9690fc5c2
+Step 3 : RUN apt-get update && apt-get install -y curl
+ ---> Using cache
+ ---> da6564e6ec52
+Step 4 : LABEL "hyzoneCurl" "true"
+ ---> Using cache
+ ---> c1c79767028c
+Successfully built c1c79767028c

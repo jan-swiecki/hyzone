@@ -14,7 +14,7 @@ Quick links:
 
 ## Introduction
 
-Hyzone uses similar concept to `docker-compose.yml`. Hyzone config file is named `hyzone.cfg` or `hyzone.bash`. This file is in bash. It has numerous user-defined functions. Each function can represent either a container or some task to be run (e.g. run multiple containers or check state of the system). Example file:
+Hyzone uses similar concept to `docker-compose.yml`. Hyzone config file is named `hyzone.cfg` or `hyzone.bash`. This file is written in bash. It has numerous user-defined functions. Each function can represent either a container or some task to be run (e.g. run multiple containers or check state of the system). Example file:
 
     PROJECT_NAME="myproj"
 
@@ -32,7 +32,7 @@ Hyzone uses similar concept to `docker-compose.yml`. Hyzone config file is named
 
 `$HYZONE_OPTS` is a variable that hyzone prefills with connection options, image name, labels etc. that are needed for your convenience and for hyzone to operate.
 
-This example is read-only. After this example you'll get other example to play with (see below).
+This example for reading only. For interactive example see [Basic example](examples/basic-example/hyzone.cfg). I encourage to continue reading and then going to Basic example.
 
 We would run above configuration file with:
 
@@ -44,7 +44,12 @@ We would run above configuration file with:
 
 Hyzone managed containers are to be treated as ephemeral.
 
-**The philosophy of hyzone is to quickly run environment, easily run manual or automatic tests and quickly tear down whole environment on-demand with all images and network removed if needed.** With this approach you're able to restart one container or all containers quickly and painfully. You can basically run any task you define in the config.
+**The philosophy of hyzone is**:
+* to quickly run part of the system or whole system
+* easily run manual or automatic tests, verify state, do normal development or run tests in CI
+* kill single containers or all of them on-demand with garbage collection if needed (i.e. you can remove all images and docker network if you want).
+
+With this approach you'll be able, for example, to run all containers, then restart one container and then kill some other, then run some tests defined in `hyzone.cfg` and then kill all containers, remove docker images and docker network. You can basically run any task you define in the config.
 
 `hyzone run <name>` will run container in specially created network (named after PROJECT_NAME). All `run` commands create containers in this network. All containers are available by their function names, e.g. by `backend` and `frontend` hostnames within the network.
 
@@ -77,6 +82,8 @@ To kill backend
 To kill all containers (in current hyzone scope)
 
     $ hyzone kill
+
+See [Basic example](examples/basic-example/hyzone.cfg) and [API docs](docs/API.md) for more info.
 
 ## Hyzone curl
 

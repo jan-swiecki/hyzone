@@ -9,6 +9,7 @@ If you don't understand below example then it is adviced that you familiarize yo
 Quick links:
 
 * [API docs](docs/API.md)
+* [Hyzone vs Docker Compose](docs/docker_compose.md)
 * [Basic example](examples/basic-example/hyzone.cfg)
 * [Examples](examples)
 
@@ -125,6 +126,7 @@ Random prefix is useful if you run mutilple CI pipelines parallely (e.g. for dif
 * Create more examples
   * Multi-language project example
   * Jenkins pipelines examples with selenium and API tests
+* Add Travis CI and test installation and run unit tests on various linux platforms
 * Finish `hyzone with` [experimental](docs/Experimental.md) feature.
 * Allow using other languages in bash functions which is an [experimental](docs/Experimental.md) feature.
 

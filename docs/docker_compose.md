@@ -1,6 +1,7 @@
 # Hyzone vs Docker Compose
 
 Pros of Hyzone
+
 1. Docker Compose introduces another DSL to run containers via `yml` files. I believe it brings confusion between `docker` command line options and `docker-compose.yml` configuration options especially when in some cases they behave differently or `yml` file lacks some native features. Hyzone re-uses `docker` command so you can use all native docker features immediately.
 2. Docker Compose doesn't rebuild images from Dockerfile on `docker-compose up`. `hyzone run` does that.
 3. Docker Compose disallows you to re-run single container, Hyzone doesn't.

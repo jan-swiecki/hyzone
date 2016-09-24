@@ -11,7 +11,15 @@ Quick links:
 * [API docs](docs/API.md)
 * [Hyzone vs Docker Compose](docs/docker_compose.md)
 * [Basic example](examples/basic-example/hyzone.cfg)
-* [Examples](examples)
+* [Mean stack examples](examples/mean-stack)
+
+## Installation
+
+This project is still in early stage, so we install by cloning.
+
+    $ git clone git@github.com:jan-swiecki/hyzone.git
+    $ cd hyzone
+    $ ln -s /usr/local/bin/hyzone "$(pwd)/hyzone"
 
 ## Introduction
 

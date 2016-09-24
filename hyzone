@@ -239,7 +239,8 @@ shell () {
 
   id="$(get_container_id_by_network_alias "$name")"
   if [ ! -z "$id" ]; then
-    docker inspect $id
+    shift
+    docker exec -ti $id bash "$@"
   fi
 }
 

@@ -130,7 +130,7 @@ Random prefix is useful if you run mutilple CI pipelines parallely (e.g. for dif
 
 ## TODO
 
-* Update mean-stack example
+* <s>Update mean-stack example</s>
 * Create more examples
   * Multi-language project example
   * Jenkins pipelines examples with selenium and API tests

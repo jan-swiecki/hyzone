@@ -3,8 +3,11 @@ PROJECT_NAME="app"
 backend_port=8080
 frontend_port=9966
 
+backend_dockerfile="Dockerfile.Backend"
+frontend_dockerfile="Dockerfile.Frontend"
+
 mongo () {
-  docker run -d $OPTS
+  docker run -d $HYZONE_OPTS tutum/mongodb
 }
 
 backend () {
@@ -18,14 +21,14 @@ backend () {
   docker run -d \
     -e "BACKEND_PORT=$backend_port" \
     -e "MONGO_URL=$mongo_url" \
-    $OPTS
+    $HYZONE_OPTS
 }
 
 frontend () {
   docker run -d \
     -e "BACKEND_URL=localhost" \
     -v "$(pwd):/opt/app/public_html" \
-    $OPTS \
+    $HYZONE_OPTS \
     index.js
 }
 
@@ -39,7 +42,8 @@ nginx () {
   docker run -d \
     -v /data:/usr/share/nginx/html:ro \
     -v $(pwd)/nginx.conf.tmp:/etc/nginx/nginx.conf:ro \
-    $OPTS
+    $HYZONE_OPTS \
+    nginx
 
 
 }
@@ -50,8 +54,3 @@ all () {
   hyzone run frontend
 }
 
-register_container "mongo" "mongo_DOCKER_IMAGE=tutum/mongodb"
-register_container "backend" "backend_DOCKER_FILE=Dockerfile.Backend"
-register_container "frontend" "frontend_DOCKER_FILE=Dockerfile.Frontend"
-register_container "nginx" "nginx_DOCKER_IMAGE=nginx"
-register_container "all" "all_DOCKER_IMAGE=nope"

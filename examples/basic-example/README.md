@@ -1,0 +1,1 @@
+Go to `hyzone.cfg` and read comments for each function. There are instructions on how to run each function and description on what is happening.
